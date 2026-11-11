@@ -1,13 +1,13 @@
 
-# Job Autofill
+# Applissant
 
-A lightweight, open-source Chrome extension that helps autofill repetitive job application forms using your own saved profile.
+A lightweight, open-source Safari and Chrome extension that helps autofill repetitive job application forms using your own saved profile.
 
 No AI. No bulky interface. No automatic application submission.
 
 ## Features
 
-- One-click autofill from the Chrome toolbar.
+- One-click autofill from the Chrome/Safari toolbar.
 - Save your personal and professional information.
 - Autofill common application fields.
 - Support for contact details, location, employment information and application questions.
