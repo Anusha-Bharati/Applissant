@@ -1,0 +1,21 @@
+{
+    "manifest_version": 3,
+    "name": "Job Autofill",
+    "version": "1.1.0",
+    "description": "One-click autofill for job applications",
+    "icons": {
+        "512": "images/icon.svg"
+      },
+    "permissions": [
+      "storage",
+      "activeTab",
+      "scripting"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "action": {
+      "default_title": "Autofill job application"
+    },
+    "options_page": "options/options.html"
+  }

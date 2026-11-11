@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Autofill Profile</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+
+  <main>
+    <h1>My Job Application Profile</h1>
+    <p>Your details are saved locally in Chrome.</p>
+
+    <form id="profileForm">
+
+      <h2>Personal details</h2>
+
+      <label for="firstName">First name</label>
+      <input id="firstName" type="text">
+
+      <label for="lastName">Last name</label>
+      <input id="lastName" type="text">
+
+      <label for="email">Email address</label>
+      <input id="email" type="email">
+
+      <label for="phone">Phone number</label>
+      <input id="phone" type="tel">
+
+      <label for="currentLocation">Current location</label>
+      <input id="currentLocation" type="text">
+
+      <h2>Professional details</h2>
+
+      <label for="currentCompany">Current company</label>
+      <input id="currentCompany" type="text">
+
+      <label for="linkedin">LinkedIn profile URL</label>
+      <input id="linkedin" type="url">
+
+      <label for="github">GitHub profile URL</label>
+      <input id="github" type="url">
+
+      <label for="portfolio">Portfolio URL</label>
+      <input id="portfolio" type="url">
+
+      <h2>Application questions</h2>
+
+      <label for="noticePeriod">Notice period</label>
+      <input id="noticePeriod" type="text">
+
+      <label for="source">Where did you hear about this vacancy?</label>
+      <input id="source" type="text">
+
+      <label>Do you currently have the Right to Work in the UK?</label>
+      <label>
+        <input type="radio" name="rightToWork" value="yes">
+        Yes
+      </label>
+      <label>
+        <input type="radio" name="rightToWork" value="no">
+        No
+      </label>
+
+      <label for="rightToWorkDetails">
+        Further details regarding your Right to Work status
+      </label>
+      <textarea id="rightToWorkDetails" rows="5"></textarea>
+      <button type="button" id="resetProfile">
+        Clear my profile
+      </button>
+      <button type="submit">Save my profile</button>
+
+      <p id="status" role="status"></p>
+
+    </form>
+  </main>
+
+  <script src="options.js"></script>
+</body>
+</html>
