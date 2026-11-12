@@ -1,96 +1,378 @@
-(async function autofillJobApplication() {
-    try {
-      const { profile } = await chrome.storage.local.get("profile");
+
+(async () => {
+    "use strict";
   
-      if (!profile) {
-        console.log("Job Autofill: Save your profile first.");
+    // Prevent the script from running twice on the same page.
+    if (window.__jobAutofillRunning) return;
+    window.__jobAutofillRunning = true;
+  
+    const result = {
+      filled: 0,
+      skipped: 0,
+      errors: 0
+    };
+  
+    try {
+      const { profile = {} } =
+        await chrome.storage.local.get("profile");
+  
+      if (!profile || Object.keys(profile).length === 0) {
+        console.info("Job Autofill: No saved profile found.");
         return;
       }
   
-      const rules = [
-        {
-          key: "firstName",
-          pattern: /\b(first[\s_-]*name|given[\s_-]*name)\b/i
-        },
-        {
-          key: "lastName",
-          pattern: /\b(last[\s_-]*name|surname|family[\s_-]*name)\b/i
-        },
-        {
-          key: "email",
-          pattern: /\b(email|e-mail)\b/i
-        },
-        {
-          key: "phone",
-          pattern: /\b(phone|telephone|mobile)\b/i
-        },
-        {
-          key: "currentLocation",
-          pattern: /\b(current location|location|city|town)\b/i
-        },
-        {
-          key: "linkedin",
-          pattern: /\blinkedin\b/i
-        },
-        {
-          key: "github",
-          pattern: /\bgithub\b/i
-        },
-        {
-          key: "portfolio",
-          pattern: /\b(portfolio|personal website|portfolio website)\b/i
-        },
-        {
-          key: "currentCompany",
-          pattern: /\b(current company|current employer|present employer)\b/i
-        },
-        {
-          key: "noticePeriod",
-          pattern: /\b(notice period|notice required|availability to start)\b/i
-        },
-        {
-          key: "source",
-          pattern: /\b(where did you hear|how did you hear|referral source|source of application)\b/i
-        },
-        {
-          key: "rightToWorkDetails",
-          pattern: /\b(further details regarding your right to work|right to work status|visa type|immigration status)\b/i
-        }
-      ];
+      // --------------------------------------------------
+      // FIELD RECOGNITION RULES
+      // Each profile key can recognise multiple question names.
+      // --------------------------------------------------
   
-      function getDescription(field) {
-        const labels = Array.from(field.labels || [])
-          .map(label => label.innerText)
-          .join(" ");
+      const FIELD_RULES = {
+        firstName: [
+          "first name",
+          "given name",
+          "forename",
+          "preferred first name",
+          "legal first name"
+        ],
   
-        const labelledBy = field.getAttribute("aria-labelledby");
-        const ariaText = labelledBy
-          ? labelledBy.split(" ")
-              .map(id => document.getElementById(id)?.innerText || "")
-              .join(" ")
-          : "";
+        lastName: [
+          "last name",
+          "surname",
+          "family name",
+          "second name"
+        ],
   
-        const group = field.closest(
-          "fieldset, [role='group'], [data-field]"
-        );
+        email: [
+          "email",
+          "email address",
+          "e-mail",
+          "personal email"
+        ],
   
-        return [
-          field.name,
-          field.id,
-          field.placeholder,
-          field.getAttribute("aria-label"),
-          field.autocomplete,
-          labels,
-          ariaText,
-          group?.innerText
-        ].filter(Boolean).join(" ");
+        phone: [
+          "phone",
+          "telephone",
+          "mobile",
+          "mobile phone",
+          "contact number",
+          "phone number"
+        ],
+  
+        street1: [
+          "street address",
+          "address line 1",
+          "address 1",
+          "home street 1",
+          "street 1"
+        ],
+  
+        street2: [
+          "address line 2",
+          "address 2",
+          "home street 2",
+          "street 2"
+        ],
+  
+        city: [
+          "city",
+          "town",
+          "home city",
+          "municipality"
+        ],
+  
+        country: [
+          "country",
+          "home country",
+          "country of residence",
+          "residential country"
+        ],
+  
+        postcode: [
+          "postcode",
+          "postal code",
+          "zip code",
+          "zip",
+          "home post code"
+        ],
+  
+        nationality: [
+          "nationality",
+          "citizenship",
+          "national origin"
+        ],
+  
+        currentCompany: [
+          "current company",
+          "current employer",
+          "present employer",
+          "employer name"
+        ],
+  
+        currentJobTitle: [
+          "current job title",
+          "current position",
+          "job title",
+          "present role",
+          "occupation"
+        ],
+  
+        noticePeriod: [
+          "notice period",
+          "availability",
+          "when can you start",
+          "available to start"
+        ],
+  
+        linkedin: [
+          "linkedin",
+          "linkedin url",
+          "linkedin profile"
+        ],
+  
+        github: [
+          "github",
+          "github url",
+          "github profile"
+        ],
+  
+        portfolio: [
+          "portfolio",
+          "portfolio url",
+          "personal website",
+          "website"
+        ],
+  
+        currentSalary: [
+          "current salary",
+          "present salary",
+          "existing salary",
+          "current annual salary"
+        ],
+  
+        salaryExpectation: [
+          "salary expectation",
+          "expected salary",
+          "salary requirements",
+          "desired salary",
+          "salary expectations",
+          "expected annual compensation",
+          "desired compensation"
+        ],
+  
+        salaryCurrency: [
+          "salary currency",
+          "currency"
+        ],
+  
+        salaryFrequency: [
+          "salary frequency",
+          "pay frequency",
+          "salary basis"
+        ],
+  
+        visaStatus: [
+          "visa status",
+          "immigration status",
+          "residency status"
+        ],
+  
+        visaExpiryDate: [
+          "visa expiry",
+          "visa expiration",
+          "visa expiry date",
+          "permit expiry date"
+        ],
+  
+        rightToWork: [
+          "right to work",
+          "right to live and work",
+          "legally authorised to work",
+          "legally authorized to work",
+          "eligible to work",
+          "work eligibility"
+        ],
+  
+        sponsorshipRequired: [
+          "visa sponsorship",
+          "require sponsorship",
+          "require visa sponsorship",
+          "sponsorship required"
+        ],
+  
+        workPermitDetails: [
+          "work permit details",
+          "immigration details",
+          "visa details"
+        ],
+  
+        applicationSource: [
+          "where did you hear about us",
+          "how did you hear about us",
+          "source of application",
+          "application source",
+          "referral source",
+          "how did you find this job"
+        ],
+  
+        rightToWorkDetails: [
+          "additional right to work information",
+          "right to work details",
+          "work eligibility details"
+        ]
+      };
+  
+      // --------------------------------------------------
+      // NORMALISE TEXT FOR MATCHING
+      // --------------------------------------------------
+  
+      function normalise(value) {
+        return String(value || "")
+          .toLowerCase()
+          .replace(/[*:]/g, " ")
+          .replace(/[_-]/g, " ")
+          .replace(/[^\p{L}\p{N}\s]/gu, " ")
+          .replace(/\s+/g, " ")
+          .trim();
       }
   
-      function setValue(field, value) {
+      // --------------------------------------------------
+      // GET FIELD LABELS
+      // --------------------------------------------------
+  
+      function getFieldText(element) {
+        const parts = [];
+  
+        if (element.labels) {
+          for (const label of element.labels) {
+            parts.push(label.innerText);
+          }
+        }
+  
+        if (element.id) {
+          const label = document.querySelector(
+            `label[for="${CSS.escape(element.id)}"]`
+          );
+  
+          if (label) parts.push(label.innerText);
+        }
+  
+        if (element.getAttribute("aria-label")) {
+          parts.push(element.getAttribute("aria-label"));
+        }
+  
+        if (element.getAttribute("placeholder")) {
+          parts.push(element.getAttribute("placeholder"));
+        }
+  
+        if (element.getAttribute("autocomplete")) {
+          parts.push(element.getAttribute("autocomplete"));
+        }
+  
+        if (element.name) parts.push(element.name);
+        if (element.id) parts.push(element.id);
+  
+        const labelledBy = element.getAttribute("aria-labelledby");
+  
+        if (labelledBy) {
+          for (const id of labelledBy.split(/\s+/)) {
+            const label = document.getElementById(id);
+            if (label) parts.push(label.innerText);
+          }
+        }
+  
+        // Look for nearby question text.
+        const container = element.closest(
+          '[role="group"], fieldset, .field, .form-field'
+        );
+  
+        if (container) {
+          parts.push(container.innerText);
+        }
+  
+        return normalise(parts.join(" "));
+      }
+  
+      // --------------------------------------------------
+      // MATCH A FORM FIELD TO A PROFILE KEY
+      // --------------------------------------------------
+  
+      function findProfileKey(element) {
+        const text = getFieldText(element);
+  
+        if (!text) return null;
+  
+        for (const [key, phrases] of Object.entries(FIELD_RULES)) {
+          for (const phrase of phrases) {
+            const normalPhrase = normalise(phrase);
+  
+            if (
+              text === normalPhrase ||
+              text.includes(normalPhrase)
+            ) {
+              return key;
+            }
+          }
+        }
+  
+        return null;
+      }
+  
+      // --------------------------------------------------
+      // SAFELY CHECK WHETHER A FIELD CAN BE FILLED
+      // --------------------------------------------------
+  
+      function canFill(element) {
+        if (!element || !element.isConnected) return false;
+        if (element.disabled || element.readOnly) return false;
+  
+        if (
+          element.type === "hidden" ||
+          element.type === "password" ||
+          element.type === "file" ||
+          element.type === "submit" ||
+          element.type === "button" ||
+          element.type === "reset"
+        ) {
+          return false;
+        }
+  
+        if (
+          element.getAttribute("aria-hidden") === "true" ||
+          element.closest('[aria-hidden="true"]')
+        ) {
+          return false;
+        }
+  
+        const style = window.getComputedStyle(element);
+  
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden"
+        ) {
+          return false;
+        }
+  
+        // Do not overwrite information already entered.
+        if (
+          element.type === "checkbox" ||
+          element.type === "radio"
+        ) {
+          return !element.checked;
+        }
+  
+        return !String(element.value || "").trim();
+      }
+  
+      // --------------------------------------------------
+      // SET VALUE USING NATIVE ELEMENT SETTERS
+      // Helps React and other controlled forms detect changes.
+      // --------------------------------------------------
+  
+      function setNativeValue(element, value) {
         const prototype =
-          field instanceof HTMLTextAreaElement
+          element instanceof HTMLTextAreaElement
             ? HTMLTextAreaElement.prototype
-            : field instanceof HTMLSelectElement
+            : element instanceof HTMLSelectElement
               ? HTMLSelectElement.prototype
               : HTMLInputElement.prototype;
   
@@ -100,135 +382,217 @@
         )?.set;
   
         if (setter) {
-          setter.call(field, value);
+          setter.call(element, String(value));
         } else {
-          field.value = value;
+          element.value = String(value);
         }
   
-        field.dispatchEvent(new Event("input", { bubbles: true }));
-        field.dispatchEvent(new Event("change", { bubbles: true }));
+        element.dispatchEvent(
+          new Event("input", { bubbles: true })
+        );
+  
+        element.dispatchEvent(
+          new Event("change", { bubbles: true })
+        );
       }
   
-      function chooseOption(select, value) {
-        const target = value.toLowerCase().trim();
+      // --------------------------------------------------
+      // MATCH DROPDOWN OPTIONS
+      // --------------------------------------------------
   
-        const option = Array.from(select.options).find(option => {
-          const text = option.textContent.toLowerCase().trim();
-          const optionValue = option.value.toLowerCase().trim();
+      function fillSelect(element, value) {
+        const target = normalise(value);
+  
+        if (!target) return false;
+  
+        const options = Array.from(element.options);
+  
+        const option = options.find(option => {
+          const text = normalise(option.textContent);
+          const optionValue = normalise(option.value);
   
           return (
             text === target ||
-            optionValue === target ||
-            (target && text.includes(target))
+            optionValue === target
           );
         });
   
-        if (option && !select.value) {
-          setValue(select, option.value);
-          return true;
-        }
+        if (!option || option.disabled) return false;
   
-        return false;
+        element.value = option.value;
+  
+        element.dispatchEvent(
+          new Event("input", { bubbles: true })
+        );
+  
+        element.dispatchEvent(
+          new Event("change", { bubbles: true })
+        );
+  
+        return true;
       }
   
-      let filledCount = 0;
+      // --------------------------------------------------
+      // RADIO BUTTONS
+      // --------------------------------------------------
   
-      // Fill text, email, telephone, URL, select and textarea fields.
-      const fields = document.querySelectorAll(
-        "input:not([type='hidden']):not([type='password']):not([type='file']):not([type='radio']):not([type='checkbox']), textarea, select"
+      function fillRadio(element, value) {
+        const target = normalise(value);
+  
+        if (!target || !element.name) return false;
+  
+        const radios = Array.from(
+          document.querySelectorAll(
+            `input[type="radio"][name="${CSS.escape(element.name)}"]`
+          )
+        );
+  
+        const match = radios.find(radio => {
+          const labelText = radio.labels
+            ? Array.from(radio.labels)
+                .map(label => label.innerText)
+                .join(" ")
+            : "";
+  
+          return (
+            normalise(radio.value) === target ||
+            normalise(labelText) === target
+          );
+        });
+  
+        if (!match || match.disabled) return false;
+  
+        match.click();
+        return true;
+      }
+  
+      // --------------------------------------------------
+      // CHECKBOXES
+      // Only fill explicit profile answers.
+      // Consent is never assumed.
+      // --------------------------------------------------
+  
+      function fillCheckbox(element, value) {
+        const target = normalise(value);
+  
+        if (!target) return false;
+  
+        const yesValues = [
+          "yes",
+          "true",
+          "agree",
+          "agreed",
+          "accept",
+          "accepted"
+        ];
+  
+        const noValues = [
+          "no",
+          "false",
+          "disagree",
+          "decline",
+          "declined"
+        ];
+  
+        let shouldCheck = null;
+  
+        if (yesValues.includes(target)) {
+          shouldCheck = true;
+        } else if (noValues.includes(target)) {
+          shouldCheck = false;
+        }
+  
+        if (shouldCheck === null) return false;
+  
+        if (element.checked !== shouldCheck) {
+          element.click();
+        }
+  
+        return true;
+      }
+  
+      // --------------------------------------------------
+      // PROCESS STANDARD FORM ELEMENTS
+      // --------------------------------------------------
+  
+      const fields = Array.from(
+        document.querySelectorAll(
+          "input, textarea, select"
+        )
       );
   
-      for (const field of fields) {
-        if (
-          field.disabled ||
-          field.readOnly ||
-          field.getClientRects().length === 0
-        ) {
+      for (const element of fields) {
+        if (!canFill(element)) {
+          result.skipped++;
           continue;
         }
   
-        const description = getDescription(field);
-        const rule = rules.find(item => item.pattern.test(description));
+        const key = findProfileKey(element);
   
-        if (!rule) continue;
+        if (!key) {
+          result.skipped++;
+          continue;
+        }
   
-        const value = profile[rule.key];
+        const value = profile[key];
   
-        if (!value) continue;
+        if (
+          value === undefined ||
+          value === null ||
+          String(value).trim() === ""
+        ) {
+          result.skipped++;
+          continue;
+        }
   
-        if (field instanceof HTMLSelectElement) {
-          if (chooseOption(field, String(value))) {
-            filledCount++;
+        try {
+          let success = false;
+  
+          if (element.tagName === "SELECT") {
+            success = fillSelect(element, value);
+          } else if (element.type === "radio") {
+            success = fillRadio(element, value);
+          } else if (element.type === "checkbox") {
+            success = fillCheckbox(element, value);
+          } else {
+            setNativeValue(element, value);
+            success = true;
           }
-        } else if (!field.value.trim()) {
-          setValue(field, String(value));
-          filledCount++;
-        }
-      }
   
-      // Handle native right-to-work radio buttons.
-      const radios = Array.from(
-        document.querySelectorAll("input[type='radio']")
-      );
-  
-      const groups = new Map();
-  
-      for (const radio of radios) {
-        const groupKey = radio.name || radio.id;
-  
-        if (!groupKey) continue;
-  
-        if (!groups.has(groupKey)) {
-          groups.set(groupKey, []);
-        }
-  
-        groups.get(groupKey).push(radio);
-      }
-  
-      for (const groupRadios of groups.values()) {
-        const firstRadio = groupRadios[0];
-        const group = firstRadio.closest(
-          "fieldset, [role='group'], [data-field]"
-        ) || firstRadio.parentElement?.parentElement;
-  
-        const question = group?.innerText || getDescription(firstRadio);
-  
-        if (!/\bright to work\b/i.test(question)) continue;
-  
-        if (groupRadios.some(radio => radio.checked)) continue;
-  
-        if (profile.rightToWork !== "yes") continue;
-  
-        const yesRadio = groupRadios.find(radio => {
-          const label = Array.from(radio.labels || [])
-            .map(item => item.innerText)
-            .join(" ");
-  
-          return (
-            /^yes\b/i.test(label.trim()) ||
-            /^yes\b/i.test(radio.value)
+          if (success) {
+            result.filled++;
+          } else {
+            result.skipped++;
+          }
+        } catch (error) {
+          console.warn(
+            `Job Autofill: Could not fill ${key}`,
+            error
           );
-        });
   
-        if (yesRadio) {
-          yesRadio.click();
-          filledCount++;
+          result.errors++;
         }
       }
   
-      console.log(`Job Autofill: ${filledCount} fields filled.`);
+      // --------------------------------------------------
+      // REPORT RESULT
+      // --------------------------------------------------
   
-      await chrome.runtime.sendMessage({
+      console.info("Job Autofill result:", result);
+  
+      chrome.runtime.sendMessage({
         type: "AUTOFILL_RESULT",
-        count: filledCount
+        count: result.filled,
+        skipped: result.skipped,
+        errors: result.errors
+      }).catch(() => {
+        // The page may not have an active extension connection.
       });
   
     } catch (error) {
       console.error("Job Autofill error:", error);
-  
-      await chrome.runtime.sendMessage({
-        type: "AUTOFILL_RESULT",
-        count: 0
-      });
+    } finally {
+      window.__jobAutofillRunning = false;
     }
   })();
+  
